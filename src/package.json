@@ -1,0 +1,24 @@
+{
+  "name": "housekeeper_bee_ai_agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "NODE_ENV=prod node index.js",
+    "dev": "NODE_ENV=dev node index.js",
+    "dev_x": "NODE_ENV=dev NODE_TLS_REJECT_UNAUTHORIZED='0' node index.js",
+    "monitor": "NODE_ENV=dev node --watch index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "dotenv": "^17.2.2",
+    "mqtt": "^5.14.0",
+    "node-fetch": "^3.3.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "nodemailer": "^7.0.6"
+  }
+}
