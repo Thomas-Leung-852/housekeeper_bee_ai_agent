@@ -462,6 +462,7 @@ class Configuration{
 			},
 			housekeeperBee:{
 				url: `${process.env.HOUSEKEEPER_BEE_URL}`,
+				admin_url: `${process.env.HOUSEKEEPER_BEE_ADMIN_URL}`,
 				apiKey: `${process.env.HOUSEKEEPER_BEE_API_KEY}`,
 				enabled: `${process.env.HOUSEKEEPER_BEE_ENABLED}`
 			}

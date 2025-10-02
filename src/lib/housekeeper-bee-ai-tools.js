@@ -21,7 +21,8 @@ class HousekeeperBeeAiTools
 
 			this.beeUrl = housekeeperBeeConfig.url
 			this.beeApiKey = housekeeperBeeConfig.apiKey
-			this.beeEnabled = housekeeperBeeConfig.enabled
+			this.beeEnabled = (housekeeperBeeConfig.enabled.toLowerCase() === 'true' || housekeeperBeeConfig.enabled.toLowerCase() === 'yes' || housekeeperBeeConfig.enabled.toLowerCase() === 'enable'? true : false);
+			this.beeAdminUrl = housekeeperBeeConfig.admin_url
 
 		}
 
@@ -35,6 +36,11 @@ class HousekeeperBeeAiTools
 		  return regex.test(str);
 		};
 
+
+		// Math rounding
+		roundUpToOneDecimalPlace(num) {
+			return Math.ceil(num * 10) / 10;
+		}
 
 		// Get all zigbee device profiles
 		async getAllZigbeeDevice(){
@@ -64,25 +70,70 @@ class HousekeeperBeeAiTools
 		}
 
 
+ 		// Get all zigbee temperature and humidity device state
+                async getAllZigbeeRHnTempDevice(){
+
+                        const zigbeeManager = new ZigbeeDeviceManager();
+                        var devices = null
+
+                        try {
+                                await zigbeeManager.connect();
+                                await new Promise(resolve => setTimeout(resolve, 3000));
+                                devices = await zigbeeManager.getDevicesByType('Temperature and Humidity');
+                        } catch (error) {
+                                console.log('Error: ', error);
+                        }finally {
+                                // Clean up
+                                setTimeout(() => {
+                                zigbeeManager.disconnect();
+                                }, 1000);
+                        }
+
+                        return devices;
+                }
+
+
 		/************************************************************** 
 		* AI Tools
 		***************************************************************/
+		async getAllTemperatureAndHumiditySensor(){
 
-		// Cannot answer the question
-		sayIdontKnown(args){
-			return 'Unknown Command.';
+			const devices = await this.getAllZigbeeRHnTempDevice();
+
+			var rsp = ['Temperature and Humidity devices state'];
+
+			if(devices){
+				var temperatureUnit = '';
+
+				devices.forEach((device, index) => {
+					const exposes = device.definition.exposes.filter(ex => ex.description.includes('temperature value'));
+
+					if(exposes){
+						temperatureUnit = exposes[0].unit;
+					}
+					rsp.push(`${index+1}. ${device.friendly_name}`);
+					rsp.push(`Temperature: ${device.lastData.temperature}${temperatureUnit}`);
+					rsp.push(`Humidity: ${device.lastData.humidity}%`);
+					rsp.push(`Battery: ${device.lastData.battery}%`);
+					rsp.push('');
+				});
+			}else{
+				rsp.push('No devices found!');
+			}
+			return rsp.join('\n');
 		}
 
+
 		// Power on a device
-		async switchOnPlug(args){
+		async switchOnPlug(deviceName){
 			try{
 				const {devices} = await this.getAllZigbeeDevice();
 
 				if(devices){
-					const device = devices.filter( dev => dev.friendly_name === args.device_name );
+					const device = devices.filter( dev => dev.friendly_name === deviceName );
 
 					if(device){
-						const states = await this.zigbeeDeviceAnalyst.getDeviceState(args.device_name); 
+						const states = await this.zigbeeDeviceAnalyst.getDeviceState(deviceName); 
 
 						if( `${states.mode || 'unknown'}` === 'switch' ){
 							if(states.state === 'OFF'){
@@ -105,15 +156,15 @@ class HousekeeperBeeAiTools
 		}
 
 		// Power off a device
-		async switchOffPlug(args){
+		async switchOffPlug(deviceName){
 			try{
 				const {devices} = await this.getAllZigbeeDevice();
 
 				if(devices){
-					const device = devices.filter( dev => dev.friendly_name === args.device_name );
+					const device = devices.filter( dev => dev.friendly_name === deviceName );
 
 					if(device){
-						const states = await this.zigbeeDeviceAnalyst.getDeviceState(args.device_name); 
+						const states = await this.zigbeeDeviceAnalyst.getDeviceState(deviceName); 
 
 						if( `${states.mode || 'unknown'}` === 'switch' ){
 							if(states.state === 'ON'){
@@ -136,16 +187,16 @@ class HousekeeperBeeAiTools
 
 		}
 
-		// togglePlug
-		async togglePlug(args){
+		// clickButton
+		async clickButton(deviceName){
 			try{
 				const {devices} = await this.getAllZigbeeDevice();
 
 				if(devices){
-					const device = devices.filter( dev => dev.friendly_name === args.device_name );
+					const device = devices.filter( dev => dev.friendly_name === deviceName );
 
 					if(device){
-						const states = await this.zigbeeDeviceAnalyst.getDeviceState(args.device_name); 
+						const states = await this.zigbeeDeviceAnalyst.getDeviceState(deviceName); 
 
 						if(`${states.mode || 'unknown'}` === 'click'){
 							const cmd = (states.state === 'ON' ? 'OFF' : 'ON');
@@ -178,18 +229,20 @@ class HousekeeperBeeAiTools
 				}
 			});
 
+			desc.push('To use Housekeeper Bee server tools, please set HOUSEKEEPER\\_BEE\\_ENABLED to true from .env.prod file.');
+
 			return desc.join('\n');
 		}
 
 		// Get Zigbee device state
-		async getDeviceState(args){
+		async getDeviceState(deviceName){
 			var temperatureUnit = '°C';
 			var results = [];
 
 			try {
-				const deviceState = await this.zigbeeDeviceAnalyst.getDeviceState(args.friendly_name);
+				const deviceState = await this.zigbeeDeviceAnalyst.getDeviceState(deviceName);
 
-				results.push(args.friendly_name);
+				results.push(deviceName);
 
 				if(deviceState){
 					if(deviceState.temperature){
@@ -204,6 +257,7 @@ class HousekeeperBeeAiTools
 					if(deviceState.state){ results.push(`State: ${deviceState.state}`); }
 					if(deviceState.reverse){ results.push(`Reverse: ${deviceState.reverse}`); }
 					if(deviceState.touch){ results.push(`Touch: ${deviceState.touch}`); }
+					if(deviceState.mode){ results.push(`Touch: ${deviceState.mode}`); }
 				}
 			} catch (error) {
 				results.push('Error getting device state:', error.message);
@@ -239,15 +293,15 @@ class HousekeeperBeeAiTools
 		}
 
 		// Get Zigbee device profile by friendly name/ device name
-		async showZigBeeDeviceByName(args){
+		async showZigBeeDeviceByName(deviceName){
 
 			var {devices, onlineDevices} = await this.getAllZigbeeDevice();
 			var results = [`\n=== ${args.friendly_name} Details ===`];
 
 			if(devices != null && onlineDevices != null){
 
-				devices = devices.filter(device => device.friendly_name === args.friendly_name);
-				onlineDevices = onlineDevices.filter(device => device.friendly_name === args.friendly_name);
+				devices = devices.filter(device => device.friendly_name === deviceName);
+				onlineDevices = onlineDevices.filter(device => device.friendly_name === deviceName);
 
 				devices.forEach((device, index) => {
 					results.push(`${index + 1}. ${device.friendly_name}`);
@@ -310,11 +364,11 @@ class HousekeeperBeeAiTools
 
 
 		//Housekeeper Bee :: Find stored Item from strorage box
-		async findStorageBoxsItem(args){
+		async findStorageBoxsItem(itemName){
 
-			const item = args.item_name;
+			const item = itemName;
 
-			if(item && this.beeEnabled){
+			if(this.beeEnabled){
 
 				process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -362,10 +416,10 @@ class HousekeeperBeeAiTools
 
 
 		//Housekeeper Bee :: List all storage boxes and location name
-                async showAllStorageBoxes(args){
+                async showAllStorageBoxes(boxName, isShowDetail){
 
-			const show_detail = args.show_detail;
-			const filter_box_name = args.filter_box_name;
+			const show_detail = isShowDetail;
+			const filter_box_name = boxName;
 
                         if(this.beeEnabled){
 
@@ -426,27 +480,54 @@ class HousekeeperBeeAiTools
                         }
                 }
 
+		//Housekeeper Bee :: get Housekeeper Bee server status
+                async getHseBeeSrvState(){
+                        if(this.beeEnabled){
+                                process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+                                const response = await fetch(`${this.beeAdminUrl}/api/housekeeping/admin/system/mcp/getSysInfo`, {
+                                        headers: {
+                                                'x-api-key': `${this.beeApiKey}`,
+                                        },
+                                });
+
+                                process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+
+                                if (!response.ok) {
+                                        console.log(`Error fetching data: ${response.status} ${response.statusText}`)
+                                }
+
+                                var jsonData = await response.json();
+
+                                if(jsonData.length == 0){
+                                        return `Housekeeper Bee serevr no response!`
+                                }else{
+
+                                        var result = [`Housekeeper Bee Server status:`];
+
+					result.push(`System Uptime: ${jsonData.sysUptime}`);
+					result.push(`CPU temperature: ${this.roundUpToOneDecimalPlace(jsonData.cpuTemperature)}°C `);
+					result.push(`IO temperature: ${this.roundUpToOneDecimalPlace(jsonData.ioTemperature)}°C`);
+					result.push(jsonData.sleepDetail);
+
+                                        return result.join('\n');
+                                }
+
+                                return 'Done'
+                        }else{
+				if(!this.beeEnabled){
+					return 'Housekeeper Bee integration disabled!';
+				}else{
+					return 'getHseBeeSrvState bugs.'
+				}
+
+                        }
+                }
+
 		/************************************************************** 
 		* AI Tool Definition
 		***************************************************************/
 	 	tools = [
-			{ type: 'function', function: {
-					name: 'sayIdontKnown',
-					description: 'Do any things!',
-					parameters: 
-					{
-						type: 'object',
-						required: ['msg'],
-						properties: 
-						{
-							msg: { type: 'string', description: 'User prompt' }
-						}
-					}
-				}
-				,display: false
-				,title: ''
-				,detail: ''
-			},
 			{
 				type: 'function',
 				function: 
@@ -492,7 +573,7 @@ class HousekeeperBeeAiTools
 				function: 
 				{
 					name: 'showZigBeeDevicesList',
-					description: 'Get all Zigbee devices profile list from Zigbee2MQTT server.'
+					description: 'Get a Zigbee devices profile list. The profile includes device name, model, function description'
 				}
 				,display: true
 				,title: 'Get all devices list'
@@ -502,8 +583,19 @@ class HousekeeperBeeAiTools
 				type: 'function',
 				function: 
 				{
+					name: 'getAllTemperatureAndHumiditySensor',
+					description: `it retrieves and displays data from all connected temperature and humidity sensors.`
+				}
+				,display: true
+				,title: 'Get all temperature and humidity devices list'
+				,detail: 'e.g. Show all temperature devices. Show all Humidity devices.'
+			},
+			{
+				type: 'function',
+				function: 
+				{
 					name: 'showHelp',
-					description: 'when user ask for help or question.'
+					description: 'when user ask for help or question.it supports shortcut "?" '
 				}
 				,display: true
 				,title: 'Show a help menu'
@@ -514,14 +606,14 @@ class HousekeeperBeeAiTools
 				function: 
 				{
 					name: 'showZigBeeDeviceByName',
-					description: 'Retrieve the Zigbee device profile using the friendly_name. The friendly_name, which is the same as the device name, should be enclosed in double quotation marks.',
+					description: 'Retrieve the Zigbee device profile using the device name or friendly name. The name MUST enclose in a double quotation marks.',
 					parameters: 
 					{
 					type: 'object',
 					required: ['friendly_name'],
 						properties: 
 						{
-							friendly_name: { type: 'string', description: 'zigbee device friendly name' }
+							friendly_name: { type: 'string', description: 'zigbee device or sensor friendly name. Commonly the name is enclosed in a double quotation mark.' }
 						}
 					}
 				}
@@ -534,14 +626,15 @@ class HousekeeperBeeAiTools
 				function: 
 				{
 					name: 'getDeviceState',
-					description: `To retrieve the Zigbee device state, use the friendly_name, which may include the device type. The friendly_name, which is the same as the device name, should be enclosed in double quotation marks. Examples of device types include: temperature, humidity, battery, and switch.`,
+					description: `To retrieve the Zigbee device state using getDeviceState, provide the device name, which should be enclosed in double quotation marks. 
+Please ensure there are no extra double quotation marks.`,
 					parameters: 
 					{
 					type: 'object',
-					required: ['friendly_name'],
+					required: ['device_name'],
 						properties: 
 						{
-							friendly_name: { type: 'string', description: 'zigbee device friendly name' }
+							device_name: { type: 'string', description: 'The input parameter is the Zigbee device name, which must be enclosed in double quotation marks.' }
 						}
 					}
 				}
@@ -553,7 +646,7 @@ class HousekeeperBeeAiTools
 				type: 'function',
 				function: 
 				{
-					name: 'togglePlug',
+					name: 'clickButton',
 					description: `Toggle a zigbee device state by action click, touch, press the button to toggle device state on/off. `,
 					parameters: 
 					{
@@ -565,7 +658,7 @@ class HousekeeperBeeAiTools
 						}
 					}
 				}
-				,display: this.beeEnabled
+				,display: true
 				,title: 'Toggle a zigbee device state - On/Off'
 				,detail: 'e.g. Press the "ada room fan" button.'
 			},
@@ -585,7 +678,7 @@ class HousekeeperBeeAiTools
 						}
 					}
 				}
-				,display: this.beeEnabled
+				,display: true
 				,title: 'Find stored item in storage boxes managed by Housekeeper Bee.'
 				,detail: 'e.g. Find "USB cable" from storeage boxes'
 			},
@@ -606,11 +699,21 @@ class HousekeeperBeeAiTools
 						}
 					}
 				}
-				,display: this.beeEnabled
+				,display: false
 				,title: 'Find storage boxes managed by Housekeeper Bee.'
-				,detail: 'e.g. Find storage box named as "Ada*" '
+				,detail: 'e.g. Find all storaged boxes. '
+			},
+			{
+				type: 'function',
+				function: 
+				{
+					name: 'getHseBeeSrvState',
+					description: 'Get Housekeeper Bee server status. People call the server as "Bee", "Housekeeper Bee". This server manages all the storage boxes and storage locations.'
+				}
+				,display: true
+				,title: 'Get Housekeeper Bee server status.'
+				,detail: 'e.g. show Bee status.'
 			}
-
 
 
 		];
@@ -634,10 +737,10 @@ class HousekeeperBeeAiTools
 				options: {
 					temperature: 0.0, // No randomness for consistent logic
 					top_p: 0.1,       // Further reduce randomness
-					max_tokens: 50,
+					max_tokens: 350,   // 50
 					// Force cleanup
-					num_ctx: 1024,  // Limit context window
-					keep_alive: 0,   // Don't keep model loaded
+					num_ctx: 2048,  // Limit context window - 1024
+					keep_alive: 1,   //  0 = Don't keep model loaded
 					charset: 'utf-8'
 				}
 				})
@@ -651,36 +754,17 @@ class HousekeeperBeeAiTools
 			const data = await response.json();
 
 			if (data.message.tool_calls) {
+
 				const tool = data.message.tool_calls[0];
 
 				var result = "";
 
-				if(tool.function.name === 'sayIdontKnown'){
-					result = this.sayIdontKnown(tool.function.arguments);
-				}else if(tool.function.name === 'switchOnPlug'){
-					result = this.switchOnPlug(tool.function.arguments);
-				}else if(tool.function.name === 'switchOffPlug'){
-					result = this.switchOffPlug(tool.function.arguments);
-				}else if(tool.function.name === 'showZigBeeDevicesList'){
-					result = await this.showZigBeeDevicesList();
-				}else if(tool.function.name === 'showHelp'){
-					result = await this.showHelp();
-				}else if(tool.function.name === 'showZigBeeDeviceByName'){
-					result = await this.showZigBeeDeviceByName(tool.function.arguments);
-				}else if(tool.function.name === 'getDeviceState'){
-					result = await this.getDeviceState(tool.function.arguments);
-				}else if(tool.function.name === 'findStorageBoxsItem'){
-					result = await this.findStorageBoxsItem(tool.function.arguments);
-				}else if(tool.function.name === 'togglePlug'){
-					result = await this.togglePlug(tool.function.arguments);
-				}else if(tool.function.name === 'showAllStorageBoxes'){
-					result = await this.showAllStorageBoxes(tool.function.arguments);
-				}
+				result = this[tool.function.name](...Object.values(tool.function.arguments));
 
 				return result;
 			}
 
-			return 'Cannot found any tools to handle the request!' ;//data.message.content;
+			return 'Cannot found any tools to handle the request!';
 
 		}catch(err){
 			console.log(err);

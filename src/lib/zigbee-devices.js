@@ -110,8 +110,7 @@ class ZigbeeDeviceManager {
 	// Get devices by type
 	getDevicesByType(type) {
 		return this.getDevices().filter(device => 
-			device.definition?.model?.toLowerCase().includes(type.toLowerCase()) ||
-			device.model_id?.toLowerCase().includes(type.toLowerCase())
+			device.definition?.description?.toLowerCase().includes(type.toLowerCase())
 		);
 	}
 
