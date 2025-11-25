@@ -1,4 +1,15 @@
 # RELEASE NOTE
+### Version: v1.2.1
+### Release Date: 2025/11/25  
+### Changes:
+
+### Added
+Added `env.prod.template`
+
+### Modified
+.gitignore - ignore `.env.prod` prevents overwrite this file when updating files from remote.
+
+---
 ### Version: v1.2.0
 ### Release Date: 2025/11/25  
 ### Changes:

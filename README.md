@@ -100,7 +100,10 @@ Before setting up the Housekeeper Bee AI Agent, ensure you have:
 
 ### Configuration
 
-After installation, configure the AI Agent by updating the `.env.prod` file with:
+After installation, configure the AI Agent:  
+
+Step 1: copy the `.env.prod.template` to `.env.prod`    
+Step 2: update the `.env.prod` file with:
 
 ```env
 # Housekeeper Bee Server Configuration

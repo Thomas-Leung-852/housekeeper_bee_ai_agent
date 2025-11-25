@@ -1,4 +1,5 @@
 .env.dev
+.env.prod
 node_modules/
 temperature_alerts/
 
