@@ -1,5 +1,5 @@
 # RELEASE NOTE
-### Version: v1.1.0
+### Version: v1.2.0
 ### Release Date: 2025/11/25  
 ### Changes:
 
@@ -28,6 +28,15 @@ This configuration creates a balanced, reliable output that's:
    - Doesn't artificially suppress repetition (repeat_penalty 1)
    - Properly stops at message boundaries
 
+---
+### Version: v1.1.0
+### Release Date: 2025/10/02  
+### Changes:
+1. Bugs Fixed    
+2. Allow checking the Housekeeper Bee Server state    
+a. Update the HOUSEKEEPER_BEE_ENABLED to true    
+b. Update the HOUSEKEEPER_BEE_ADMIN_URL to Housekeeper Bee administration server URL (e.g. 192.168.50.222:8088)
+3. Allow getting the temperature and humidity sensors measurements.
 
 ---
 ### Version: v1.0.0  
