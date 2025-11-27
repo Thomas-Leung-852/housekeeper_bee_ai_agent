@@ -6,11 +6,35 @@ You may need use dos2unix to convert plain text files in DOS or Mac format to Un
 const { default: TelegramBot } = await import('node-telegram-bot-api');
 import { ZigbeeDeviceManager, ZigbeeDeviceAnalyst } from './zigbee-devices.js';
 import fetch from 'node-fetch';
+import { Ollama } from "ollama";
+import { execSync } from 'child_process';
 
 class HousekeeperBeeAiTools {
 	constructor(host = 'http://localhost:11434', model = 'llama3.2', botToken, chatIds, housekeeperBeeConfig = {}) {
-		this.host = host;	// ollama 
-		this.model = model;;
+
+		//Ollama
+		this.host = host;	 
+		this.model = model;
+		this.ollamaEnv = process.env.OLLAMA_ENV;
+		this.ollamaInitErr = false
+		
+		if(this.ollamaEnv === 'cloud'){
+ 				var version = Number(execSync(`docker exec ollama ollama -v | cut -d ' ' -f 4 | cut -d '.' -f 2`, { encoding: 'utf-8' }) || 0);
+
+				if(version >= 12){
+					this.ollama = new Ollama({
+								host: "https://ollama.com",
+								headers: {
+									Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
+								},
+							});
+				}else{
+					this.ollamaInitErr = true;
+					console.log('version problem');
+				}
+		}
+
+		//Telegram
 		this.botToken = botToken;
 		this.chatIds = chatIds;
 		this.processingFlag = false;
@@ -305,7 +329,6 @@ class HousekeeperBeeAiTools {
 		return results.join('\n');
 	}
 
-
 	// ANCHOR - Get all zigbee device list
 	async showZigBeeDevicesList() {
 		const { devices, onlineDevices } = await this.getAllZigbeeDevice();
@@ -333,12 +356,10 @@ class HousekeeperBeeAiTools {
 
 	// ANCHOR - Get Zigbee device profile by friendly name/ device name
 	async showZigBeeDeviceByName(deviceName) {
-
 		var { devices, onlineDevices } = await this.getAllZigbeeDevice();
-		var results = [`\n=== ${args.friendly_name} Details ===`];
+		var results = [`\n=== ${deviceName} Details ===`];
 
 		if (devices != null && onlineDevices != null) {
-
 			devices = devices.filter(device => device.friendly_name === deviceName);
 			onlineDevices = onlineDevices.filter(device => device.friendly_name === deviceName);
 
@@ -381,7 +402,10 @@ class HousekeeperBeeAiTools {
 				this.processingFlag = true;
 
 				if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
-				this.timeoutHdrId = this.newTimeoutHandler(this.REQUEST_TIMEOUT);
+
+				if(this.ollamaEnv === 'local'){
+					this.timeoutHdrId = this.newTimeoutHandler(this.REQUEST_TIMEOUT);
+				}
 
 				try {
 					const originalTime = new Date();
@@ -445,11 +469,16 @@ class HousekeeperBeeAiTools {
 
 			if (isShowTyping) {
 				this.typingInterval = setInterval(async () => {
-					await fetch(`https://api.telegram.org/bot${this.botToken}/sendChatAction`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ chat_id: this.callerChatId, action: 'typing' }),
-					});
+
+					try {
+						await fetch(`https://api.telegram.org/bot${this.botToken}/sendChatAction`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ chat_id: this.callerChatId, action: 'typing' }),
+						});
+					} catch (err) {
+					}
+
 				}, 5 * 1000);
 			}
 
@@ -726,9 +755,9 @@ class HousekeeperBeeAiTools {
 				description: 'Retrieves detailed profile information for a specific Zigbee device using its friendly name. The name must be enclosed in double quotation marks.',
 				parameters: {
 					type: 'object',
-					required: ['friendly_name'],
+					required: ['device_name'],
 					properties: {
-						friendly_name: {
+						device_name: {
 							type: 'string',
 							description: 'The friendly name of the Zigbee device or sensor, typically enclosed in double quotation marks'
 						}
@@ -736,8 +765,8 @@ class HousekeeperBeeAiTools {
 				}
 			},
 			display: true,
-			title: 'Get Device Profile by Name',
-			detail: 'Retrieves detailed information about a specific device using its friendly name. Example: Get "ada bedroom" information. Names should be quoted.'
+			title: 'Get Device Profile by device Name',
+			detail: 'Retrieves detailed information about a specific device using its device name. Example: Get "ada bedroom" information. Names should be quoted.'
 		},
 		{
 			// ANCHOR - Get ZigBee device state by device name
@@ -870,13 +899,11 @@ class HousekeeperBeeAiTools {
 	// ANCHOR - Chat with Ollama
 	async chat(message) {
 
-		if (this.abortController) {
-			this.abortController.abort();
-		}
-
-		this.abortController = new AbortController();
+		if(this.ollamaInitErr){ return 'Ollama version should be 12 or higher. Install or update docker image to latest version.';}
 
 		var errMsg = "Unknown Error!";
+		var response = {};
+		var data = {};
 
 		try {
 			const requestBody = {
@@ -885,13 +912,13 @@ class HousekeeperBeeAiTools {
 				stream: false,
 				tools: this.tools,
 				options: {
-					 repeat_penalty: 1,
-				    	stop: [
-				        	"<|im_start|>",
-				        	"<|im_end|>"
-				    	],
+					repeat_penalty: 1,
+					stop: [
+						"<|im_start|>",
+						"<|im_end|>"
+					],
 					temperature: 0.6,	// 0.0 (consistent and focused) -> 1.0 or higher (creative and less predictable) change the randomness for consistent logic
-					top_k:20,
+					top_k: 20,
 					top_p: 0.95,		// Further reduce randomness
 					max_tokens: 500,	// Number of words
 					num_ctx: 2048,		// Limit context window - 1024
@@ -900,19 +927,31 @@ class HousekeeperBeeAiTools {
 				}
 			};
 
-			const response = await fetch(`${this.host}/api/chat`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(requestBody),
-				signal: this.abortController.signal
-			});
+			if(this.ollamaEnv === 'cloud'){
+				response = await this.ollama.chat(requestBody);
+				data = response;
+			}else if(this.ollamaEnv === 'local'){
 
-			// Check if response is ok
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				if (this.abortController) {
+					this.abortController.abort();
+				}
+
+				this.abortController = new AbortController();
+
+				response = await fetch(`${this.host}/api/chat`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(requestBody),
+					signal: this.abortController.signal
+				});
+
+				// Check if response is ok
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				data = await response.json();
 			}
-
-			const data = await response.json();
 
 			// Check if tool calls exist
 			if (data.message.tool_calls && data.message.tool_calls.length > 0) {
@@ -965,10 +1004,13 @@ class HousekeeperBeeAiTools {
 			return lastLine;
 
 		} catch (error) {
+
 			if (error.name === 'AbortError') {
 				errMsg = "Timeout - Request Aborted!";
-			} else {
-				errMsg = "Oop! Something Wrong!";
+			} if(error.status_code === 401 ){
+				errMsg = "Unauthorized. Invalid API Key."
+			}else {
+				errMsg = "Oop! Something Wrong! " + error;
 			}
 		} finally {
 			this.abortController = null;

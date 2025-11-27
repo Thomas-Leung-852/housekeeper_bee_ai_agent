@@ -1,4 +1,58 @@
 # RELEASE NOTE
+
+### Version: v1.3.0
+### Release Date: 2025/11/27  
+### Changes:
+
+### [Modified]
+
+### Adding Ollama Cloud to utilize a remote model has improved performance and reduced roundtrip time.
+
+### To apply this version change, you need to do the following:
+
+1. Update Ollama from version 0.11.0 to 0.12.0 or higher.
+2. Install Ollama Node Library.
+3. Obtain an API key from the Ollama website. 
+4. Update the model name and add the API key in the .env.prod file.
+
+### Here are the commands:
+
+**[ * ] Update Ollama Docker Image (to run Ollama Cloud version v0.12.0 or higher)**
+
+- Step 1: Check your Ollama version. If it's lower than the required version, continue.
+
+   `docker exec ollama ollama -v`
+
+- Step 2: Update the Docker image.
+
+  `docker pull ollama/ollama:latest`
+
+- Step 3: Reboot after updating the Docker image. The Docker container will then use the latest version of Ollama (v0.13.0).
+
+  `sudo reboot`   
+
+**[ * ] Install Ollama Node Library**
+
+- Install the dependency.    
+
+   `npm i ollama`   
+
+**[ * ] Apply the Ollama Cloud API key.**
+
+   - Sign in to the Ollama website (https://www.ollama.com/). 
+   - Go to ***Settings***.
+   - Click on the ***Keys*** section.
+   - Create a new API key.
+
+**[ * ] Update the model name and add the API key in the .env.prod file:**
+
+```
+OLLAMA_MODEL_TW_CHN=qwen3-coder:480b-cloud      
+OLLAMA_API_KEY={ollama cloud api key}    
+OLLAMA_ENV=cloud    
+```   
+
+---
 ### Version: v1.2.1
 ### Release Date: 2025/11/25  
 ### Changes:
