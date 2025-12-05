@@ -20,6 +20,10 @@ echo "Create auto-run and startup file ..."
 ./30_setup_ai_agent.sh
 wait
 
+echo "Create redis docker ..."
+./35_redis_setup.sh
+wait
+
 echo ""
 echo "Done - reboot to take effect!"
 echo ""

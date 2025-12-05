@@ -86,6 +86,9 @@ docker exec -it ollama ollama pull llama3.2
 echo "Download qwen3:1.7b model"
 docker exec -it ollama ollama pull qwen3:1.7b
 
+echo "Download cloud model - gpt-oss:20b-cloud"
+docker exec -it ollama ollama pull gpt-oss:20b-cloud
+
 #************************************************
 # test model
 #************************************************

@@ -130,3 +130,35 @@ HUMIDITY_THRESHOLD=90.0
 ---
 
 **Status**: ✅ Development Complete | 🧪 Testing Complete | 🚀 Ready for Release
+
+---
+
+###   Use Case - Ada's Smart Home Rescue
+It's a scorching summer afternoon, and Ada is stuck in traffic on her way home from the office. As the AC blasts in her car, she suddenly remembers—she forgot to turn on the fan in her living room before leaving this morning. Her apartment is probably turning into an oven right now.   
+
+Without taking her hands off the wheel, she activates Siri through CarPlay.   
+
+"Hey Siri, send a message to Housekeeper Bee Bot on Telegram."   
+
+Siri responds: "What do you want to say?"   
+
+Ada speaks clearly: "What's the living room temperature and server status? If it's over 30 degrees Celsius or the CPU is running hot—over 40 degrees—turn on the living room fan."    
+
+"Ready to send it?" Siri confirms.   
+
+"Yeah, send it."   
+
+Within seconds, her AI agent processes the request and sends back a response. Since Ada has "Announce Messages" enabled, Siri reads the reply aloud through her car speakers:
+"Living room temperature is 32 degrees Celsius. CPU temperature is 37 degrees. Turning on the living room fan now. Your space should cool down in about 15 minutes."   
+
+Ada smiles and relaxes back into her seat. Crisis averted—without ever touching her phone.
+
+
+![](https://static.wixstatic.com/media/0d7edc_9b0cee3c725a4183998141b0c5db208a~mv2.png)
+
+
+## YouTube
+
+Use Case, message processing flow and Demonstration
+
+[![](https://img.youtube.com/vi/1yYoudWtvUM/0.jpg)](https://www.youtube.com/watch?v=1yYoudWtvUM)

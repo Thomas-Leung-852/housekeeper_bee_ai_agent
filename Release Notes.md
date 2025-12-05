@@ -1,7 +1,129 @@
 # RELEASE NOTE
 
+### Version: v1.4.0
+### Release Date: 2025/12/05
+----  
+### Changes:
+### [Added]
+
+**Created a Redis Docker container to maintain prompt history, which is user-based. Each user has their own prompt history. If idle for 30 minutes, the prompt history will be deleted when using cloud model.**
+
+### Setup
+
+- For new users, run `setup_all.sh` for a full installation.
+- To update the version, run `35_redis_setup.sh` to set up the Redis Docker container and configure it to run automatically on system boot. The file can be found in the `setup` folder.
+
+Reboot the Raspberry Pi and wait for Docker to load.
+
+### Checking
+
+Run the following command to check running containers:
+
+```bash
+docker ps
+```
+
+### Install Node.js Redis Dependency
+
+```
+npm i redis
+```
+
+### [Modified]
+
+### [ * ] Use model support thinking mode.
+Ollama's "think" mode enables models to show their step-by-step reasoning process, which is useful for building smarter AI agents and auditing complex decisions
+
+### [ * ] When to use thinking mode   
+- Complex problem-solving: For situations requiring detailed step-by-step logic, such as solving math problems or debugging code.   
+- Creative tasks: To explore multiple angles or ideas for creative writing, content generation, or brainstorming, as it allows the AI to generate more ideas internally before giving a final response.    
+- Auditing and debugging: To understand exactly how the model arrived at a specific answer to audit its steps or debug issues.     
+- User experience: To build applications with a "thinking bubble" animation before the final response appears, creating a more engaging user experience.     
+
+### [ * ] Procedure
+
+- Add model support `thinking` mode.
+- Add new environment variables.
+- Add Node js dependency. 
+
+### [ * ] Action
+
+### - Add model support `thinking` mode.
+
+**Model**: gpt-oss:20b-cloud    
+**Support**: tools, thinking and cloud    
+**Description**:    
+gpt-oss-20b model is designed for lower latency, multiple languages - Traditional Chinese or specialized use-cases.  
+
+#### Remote update 
+
+Step 1: In Windows, open a new terminal 
+
+Command  
+```
+ssh {user name}@{ip address}
+```
+
+Example    
+```
+ssh thomas@192.128.10.100
+```
+
+Step 2: Download Ollama model
+
+Commands
+```
+# enter bash shell
+
+docker exec -it ollama bash
+
+# download model
+
+ollama run gpt-oss:20b-cloud
+
+# check model list
+
+ollama list
+
+# Exit bash shell
+
+exit
+```
+
+### - Add new environment variables
+
+Edit the environment variables file
+
+```
+sudo nano .env.prod
+```
+
+Update the variables
+
+```
+# In Ollama section 
+# Change environment variable value 
+
+OLLAMA_MODEL_TW_CHN=gpt-oss:20b-cloud 
+OLLAMA_API_KEY={your API Key from Ollama site}
+OLLAMA_ENV=cloud  
+
+# Add environment variable
+
+OLLAMA_THINKING=true   
+```
+
+### - Add Node js dependency 
+
+Install a Node library to convert Markdown to HTML for better readability on mobile devices.
+```
+npm i marked
+```
+
+---
 ### Version: v1.3.0
 ### Release Date: 2025/11/27  
+---
 ### Changes:
 
 ### [Modified]
@@ -55,6 +177,7 @@ OLLAMA_ENV=cloud
 ---
 ### Version: v1.2.1
 ### Release Date: 2025/11/25  
+---
 ### Changes:
 
 ### Added
@@ -65,7 +188,8 @@ Added `env.prod.template`
 
 ---
 ### Version: v1.2.0
-### Release Date: 2025/11/25  
+### Release Date: 2025/11/25 
+--- 
 ### Changes:
 
 ### Added    
@@ -95,7 +219,8 @@ This configuration creates a balanced, reliable output that's:
 
 ---
 ### Version: v1.1.0
-### Release Date: 2025/10/02  
+### Release Date: 2025/10/02 
+--- 
 ### Changes:
 1. Bugs Fixed    
 2. Allow checking the Housekeeper Bee Server state    

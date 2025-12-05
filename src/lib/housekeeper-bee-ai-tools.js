@@ -8,33 +8,39 @@ import { ZigbeeDeviceManager, ZigbeeDeviceAnalyst } from './zigbee-devices.js';
 import fetch from 'node-fetch';
 import { Ollama } from "ollama";
 import { execSync } from 'child_process';
+import { marked } from 'marked';
+import { SessionStore } from './redis-manager.js';
+
 
 class HousekeeperBeeAiTools {
 	constructor(host = 'http://localhost:11434', model = 'llama3.2', botToken, chatIds, housekeeperBeeConfig = {}) {
 
 		//Ollama
-		this.host = host;	 
+		this.host = host;
 		this.model = model;
 		this.ollamaEnv = process.env.OLLAMA_ENV;
 		this.ollamaInitErr = false
-		
-		if(this.ollamaEnv === 'cloud'){
- 				var version = Number(execSync(`docker exec ollama ollama -v | cut -d ' ' -f 4 | cut -d '.' -f 2`, { encoding: 'utf-8' }) || 0);
 
-				if(version >= 12){
-					this.ollama = new Ollama({
-								host: "https://ollama.com",
-								headers: {
-									Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
-								},
-							});
-				}else{
-					this.ollamaInitErr = true;
-					console.log('version problem');
-				}
+		if (this.ollamaEnv === 'cloud') {
+			var version = Number(execSync(`docker exec ollama ollama -v | cut -d ' ' -f 4 | cut -d '.' -f 2`, { encoding: 'utf-8' }) || 0);
+
+			if (version >= 12) {
+				this.ollama = new Ollama({
+					host: "https://ollama.com",
+					headers: {
+						Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
+					},
+				});
+			} else {
+				this.ollamaInitErr = true;
+				console.log('version problem');
+			}
 		}
 
 		//Telegram
+		this.telegramSessionStore = new SessionStore('telegram');
+		this.clearPromptHistory = false;
+
 		this.botToken = botToken;
 		this.chatIds = chatIds;
 		this.processingFlag = false;
@@ -104,11 +110,71 @@ class HousekeeperBeeAiTools {
 		return newDate;
 	}
 
+	// ANCHOR - Remove Telegram unsupported tags but keep content
+	sanitizeHtmlForTelegram(html) {
+		return html
+			.replace(/<\/?p>/g, '\n')
+			.replace(/<\/?div>/g, '\n')
+			.replace(/<\/?span[^>]*>/g, '')
+			.replace(/<br\s*\/?>/gi, '\n')
+			.replace(/<\/?h[1-6]>/g, '')
+			.replace(/<\/?ul>/g, '\n')
+			.replace(/<\/?ol>/g, '\n')
+			.replace(/<\/?li>/g, '\n• ')
+			.replace(/<\/?table[^>]*>/g, '\n')
+			.replace(/<\/?tbody[^>]*>/g, '')
+			.replace(/<\/?thead[^>]*>/g, '')
+			.replace(/<\/?tr[^>]*>/g, '\n')
+			.replace(/<\/?td[^>]*>/g, ' ')
+			.replace(/<\/?th[^>]*>/g, ' ')
+			.replace(/<\/?hr>/g, '\n')
+
+			// Clean up multiple newlines
+			.replace(/\n{3,}/g, '\n\n')
+			.trim();
+	}
+
+	// ANCHOR - Remove empty rows from HTML content
+	removeEmptyRowsRegex(html) {
+		return html
+			// Remove empty table rows
+			.replace(/<tr>\s*<\/tr>/gi, '')
+			.replace(/<tr>\s*<td>\s*<\/td>\s*<\/tr>/gi, '')
+			.replace(/<tr>\s*<th>\s*<\/th>\s*<\/tr>/gi, '')
+
+			// Remove empty paragraphs
+			.replace(/<p>\s*<\/p>/gi, '')
+
+			// Remove empty divs
+			.replace(/<div>\s*<\/div>/gi, '')
+
+			// Remove empty spans
+			.replace(/<span>\s*<\/span>/gi, '')
+
+			// Remove empty list items
+			.replace(/<li>\s*<\/li>/gi, '')
+
+			// Remove multiple newlines
+			.replace(/\n{3,}/g, '\n\n')
+
+			.replace(/`/g, "")
+            .replace(/• \n/g, "")
+            .replace(/•\n/g, "")
+
+			.trim();
+	}
+
 	// !SECTION - End of Functions Implementation
 
 	/************************************************************** 
 	* SECTION - AI Tools implementation
 	***************************************************************/
+
+	// ANCHOR - clear prompt history from redis
+	async deletePromptHistory() {
+		this.clearPromptHistory = true;
+	}
+
 	// ANCHOR - Get all zigbee device profiles
 	async getAllZigbeeDevice() {
 
@@ -403,7 +469,7 @@ class HousekeeperBeeAiTools {
 
 				if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
 
-				if(this.ollamaEnv === 'local'){
+				if (this.ollamaEnv === 'local') {
 					this.timeoutHdrId = this.newTimeoutHandler(this.REQUEST_TIMEOUT);
 				}
 
@@ -462,7 +528,7 @@ class HousekeeperBeeAiTools {
 						({
 							chat_id: this.callerChatId,
 							text: msg,
-							parse_mode: 'Markdown',
+							parse_mode: 'Html',   // Markdown or HTML,
 							disable_notification: false // Ensure notification sound plays
 						})
 				})
@@ -484,19 +550,21 @@ class HousekeeperBeeAiTools {
 
 			if (ttl > 0) {
 				const data = await response.json();
-				const messageId = data.result.message_id;
 
-				// Delete after 10 seconds
-				setTimeout(async () => {
-					await this.delMsg(this.callerChatId, messageId);
-				}, ttl);
+				if (data.ok) {
+					const messageId = data.result.message_id;
+
+					setTimeout(async () => {
+						await this.delMsg(this.callerChatId, messageId);
+					}, ttl);
+				} else {
+					this.sendTelegramMsg(`Error(${data.error_code}): ${data.description}`, false, ttl);
+				}
 			}
-
 		} catch (error) {
 			console.error(' ʟ❌ Failed to send Telegram alert:', error.message);
 		}
 	}
-
 
 	// ANCHOR -  Housekeeper Bee :: count number of stroage box
 	// Housekeeper Bee related
@@ -887,7 +955,19 @@ class HousekeeperBeeAiTools {
 			display: false,
 			title: 'Count Storage Boxes',
 			detail: 'Returns the total number of storage boxes matching the specified criteria.'
+		},
+		{
+			// ANCHOR - Clear prompt history from redis
+			type: 'function',
+			function: {
+				name: 'deletePromptHistory',
+				description: 'Telegram users request to clear or delete the prompt history to enhance performance and data accuracy.'
+			},
+			display: true,
+			title: 'Clear user prompt history',
+			detail: 'It delete all user prompt history from redis database.'
 		}
+
 	];
 
 	// !SECTION - End AI Tool Definition
@@ -899,17 +979,32 @@ class HousekeeperBeeAiTools {
 	// ANCHOR - Chat with Ollama
 	async chat(message) {
 
-		if(this.ollamaInitErr){ return 'Ollama version should be 12 or higher. Install or update docker image to latest version.';}
+		if (this.ollamaInitErr) { return 'Ollama version should be 12 or higher...'; }
 
 		var errMsg = "Unknown Error!";
 		var response = {};
 		var data = {};
 
+		if(!this.telegramSessionStore.checkConnection()){
+			await this.telegramSessionStore.connect();
+			await this.telegramSessionStore.del(this.callerChatId);
+		}else{
+			if(this.clearPromptHistory){
+				await this.telegramSessionStore.del(this.callerChatId);
+				this.clearPromptHistory = false;
+			}
+		}
+
+		const messages = await this.telegramSessionStore.getArray(this.callerChatId);
+
+		messages.push({ role: 'user', content: message }); 
+
 		try {
 			const requestBody = {
 				model: this.model,
-				messages: [{ role: 'user', content: message }],
+				messages: messages,
 				stream: false,
+				think: (process.env.OLLAMA_THINKING === 'true' ? true : false),
 				tools: this.tools,
 				options: {
 					repeat_penalty: 1,
@@ -920,17 +1015,52 @@ class HousekeeperBeeAiTools {
 					temperature: 0.6,	// 0.0 (consistent and focused) -> 1.0 or higher (creative and less predictable) change the randomness for consistent logic
 					top_k: 20,
 					top_p: 0.95,		// Further reduce randomness
-					max_tokens: 500,	// Number of words
-					num_ctx: 2048,		// Limit context window - 1024
+					max_tokens: 300,	// Number of words
+					num_ctx: 4096,		// Limit context window 
 					keep_alive: 1,		//  0 = Don't keep model loaded
 					charset: 'utf-8'
 				}
 			};
 
-			if(this.ollamaEnv === 'cloud'){
-				response = await this.ollama.chat(requestBody);
-				data = response;
-			}else if(this.ollamaEnv === 'local'){
+			if (this.ollamaEnv === 'cloud') {
+				const results = [];
+				while (true) {
+
+					response = await this.ollama.chat(requestBody);
+
+					messages.push(response.message)
+					//console.log('Thinking:', response.message.thinking)
+					//console.log('Content:', response.message.content)
+
+					const toolCalls = response.message.tool_calls ?? []
+
+					if (toolCalls.length) {
+						for (const call of toolCalls) {
+							const result = await this[call.function.name](...Object.values(call.function.arguments)); // Call the tool function
+
+							results.push(result); // Store original result
+							messages.push({ role: 'tool', tool_name: call.function.name, content: String(result) })
+						}
+					} else {
+						break
+					}
+				}
+
+				await this.telegramSessionStore.saveArray(this.callerChatId, messages);
+
+				if (messages.at(-1).content == null) {
+					return results.toString();
+				} else {
+					//Formatting output in HTML 
+					const content = messages.at(-1).content || '';
+					const html = this.removeEmptyRowsRegex(this.sanitizeHtmlForTelegram(marked.parse(content)));
+					return html;
+				}
+
+			} else if (this.ollamaEnv === 'local') {
+				// Environment set to local.
+				// When the AI model and processing are run on RPi 5 (4GB).
+				// To enhance the user experience while running on RPi, each request is processed only once.
 
 				if (this.abortController) {
 					this.abortController.abort();
@@ -950,67 +1080,75 @@ class HousekeeperBeeAiTools {
 					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
 
+				messages.push(response.message);
+
 				data = await response.json();
-			}
 
-			// Check if tool calls exist
-			if (data.message.tool_calls && data.message.tool_calls.length > 0) {
+				// Check if tool calls exist
+				if (data.message.tool_calls && data.message.tool_calls.length > 0) {
 
-				let previousResult = null; // To store the result of the previous tool
-				const results = [];
+					let previousResult = null; // To store the result of the previous tool
+					const results = [];
 
-				for (const tool of data.message.tool_calls) {
-					try {
-						// Prepare arguments, incorporating the previous result if available
-						const args = tool.function.arguments
-							? Object.values(tool.function.arguments).map(arg => {
-								return (arg === 'previousResult' && previousResult)
-									? previousResult
-									: arg;
-							})
-							: [];
+					for (const tool of data.message.tool_calls) {
+						try {
+							// Prepare arguments, incorporating the previous result if available
+							const args = tool.function.arguments
+								? Object.values(tool.function.arguments).map(arg => {
+									return (arg === 'previousResult' && previousResult)
+										? previousResult
+										: arg;
+								})
+								: [];
 
-						const result = await this[tool.function.name](...args); // Call the tool function
-						results.push(result); // Store original result
-						previousResult = result; // Update previousResult
+							const result = await this[tool.function.name](...args); // Call the tool function
+							results.push(result); // Store original result
+							previousResult = result; // Update previousResult
 
-					} catch (err) {
-						console.error(`Error calling tool ${tool.function.name}:`, err);
-						results.push(`Error calling tool ${tool.function.name}: ${err.message}`);
+							messages.push({ role: 'tool', tool_name: tool.function.name, content: String(result) })
+
+						} catch (err) {
+							console.error(`Error calling tool ${tool.function.name}:`, err);
+							results.push(`Error calling tool ${tool.function.name}: ${err.message}`);
+						}
 					}
+
+					if(messages.length > 5){
+						messages.splice(0, 5);
+					}
+
+					await this.telegramSessionStore.saveArray(this.callerChatId, messages);
+
+					const finalRst = results.filter((item, index) => {
+						return results.indexOf(item) === index;
+					});
+
+					return finalRst.join('\n');  // Return an array of results
 				}
 
-				const finalRst = results.filter((item, index) => {
-					return results.indexOf(item) === index;
-				});
+				//no tools
+				if (data.message == null) return "I cannot handle it.";
 
-				return finalRst.join('\n');  // Return an array of results
+				const lastMessage = data.message.content;
 
+				// Get the last line from the lastMessage
+				let lastLine = "Sorry I don't know.";
+
+				if (lastMessage) {
+					const lines = lastMessage.split('\n'); // Split the content into lines
+					lastLine = lines.filter(line => line.trim() !== '').pop(); // Use .pop() to get the last non-empty line
+				}
+
+				return lastLine;
 			}
-
-			//no tools
-			if (data.message == null) return "I cannot handle it.";
-
-			const lastMessage = data.message.content;
-
-			// Get the last line from the lastMessage
-			let lastLine = "Sorry I don't know.";
-
-			if (lastMessage) {
-				const lines = lastMessage.split('\n'); // Split the content into lines
-				lastLine = lines.filter(line => line.trim() !== '').pop(); // Use .pop() to get the last non-empty line
-			}
-
-			return lastLine;
-
 		} catch (error) {
-
 			if (error.name === 'AbortError') {
 				errMsg = "Timeout - Request Aborted!";
-			} if(error.status_code === 401 ){
+			} else if (error.status_code === 401) {
 				errMsg = "Unauthorized. Invalid API Key."
-			}else {
-				errMsg = "Oop! Something Wrong! " + error;
+			} else {
+				errMsg = "Oops! Something Wrong! " + error;
+				await this.telegramSessionStore.del(this.callerChatId);
 			}
 		} finally {
 			this.abortController = null;
