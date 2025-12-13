@@ -458,7 +458,8 @@ class Configuration{
 			},
 			telegram: {
 				botToken: `${process.env.TLG_BOT_TOKEN}`,
-				chatIds: [`${process.env.TLG_CHAT_ID_LIST}`]
+				chatIds: [`${process.env.TLG_CHAT_ID_LIST}`],
+				botName: `${process.env.TLG_BOT_NAME}`
 			},
 			housekeeperBee:{
 				url: `${process.env.HOUSEKEEPER_BEE_URL}`,
@@ -485,8 +486,7 @@ async function main() {
 	const housekeeperBeeAiTools = new HousekeeperBeeAiTools(
 					'http://localhost:11434' ,
 					setting.config.ollama.chn_model,
-					setting.config.telegram.botToken ,
-					setting.config.telegram.chatIds,
+					setting.config.telegram,
 					setting.config.housekeeperBee
 					);
 

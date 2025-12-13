@@ -13,7 +13,9 @@ import { SessionStore } from './redis-manager.js';
 
 
 class HousekeeperBeeAiTools {
-	constructor(host = 'http://localhost:11434', model = 'llama3.2', botToken, chatIds, housekeeperBeeConfig = {}) {
+	constructor(host = 'http://localhost:11434', model = 'llama3.2', 
+		telegramConfig = {},
+		housekeeperBeeConfig = {}) {
 
 		//Ollama
 		this.host = host;
@@ -38,14 +40,15 @@ class HousekeeperBeeAiTools {
 		}
 
 		//Telegram
+		this.bot_name = telegramConfig.botName;
 		this.telegramSessionStore = new SessionStore('telegram');
 		this.clearPromptHistory = false;
 
-		this.botToken = botToken;
-		this.chatIds = chatIds;
+		this.botToken = telegramConfig.botToken;
+		this.chatIds = telegramConfig.chatIds;
 		this.processingFlag = false;
 
-		this.bot = new TelegramBot(botToken, { polling: true });
+		this.bot = new TelegramBot(telegramConfig.botToken, { polling: true });
 		this.handleMessage = this.handleMessage.bind(this);
 		this.bot.on('message', this.handleMessage);
 
@@ -158,8 +161,8 @@ class HousekeeperBeeAiTools {
 			.replace(/\n{3,}/g, '\n\n')
 
 			.replace(/`/g, "")
-            .replace(/• \n/g, "")
-            .replace(/•\n/g, "")
+			.replace(/• \n/g, "")
+			.replace(/•\n/g, "")
 
 			.trim();
 	}
@@ -170,12 +173,12 @@ class HousekeeperBeeAiTools {
 	* SECTION - AI Tools implementation
 	***************************************************************/
 
-	// ANCHOR - clear prompt history from redis
+	// ANCHOR - System :: Clear prompt history from redis
 	async deletePromptHistory() {
 		this.clearPromptHistory = true;
 	}
 
-	// ANCHOR - Get all zigbee device profiles
+	// ANCHOR - Zigbee :: Get all zigbee device profiles
 	async getAllZigbeeDevice() {
 
 		const zigbeeManager = new ZigbeeDeviceManager();
@@ -202,8 +205,7 @@ class HousekeeperBeeAiTools {
 		return { devices, onlineDevices };
 	}
 
-
-	// ANCHOR - Get all zigbee temperature and humidity device state
+	// ANCHOR - Zigbee :: Get all zigbee temperature and humidity device state
 	async getAllZigbeeRHnTempDevice() {
 
 		const zigbeeManager = new ZigbeeDeviceManager();
@@ -225,7 +227,7 @@ class HousekeeperBeeAiTools {
 		return devices;
 	}
 
-	// ANCHOR - Get ZigBee Temperature and Humidity device reading
+	// ANCHOR - Zigbee :: Get ZigBee Temperature and Humidity device reading
 	async getAllTemperatureAndHumiditySensor() {
 
 		const devices = await this.getAllZigbeeRHnTempDevice();
@@ -253,7 +255,7 @@ class HousekeeperBeeAiTools {
 		return rsp.join('\n');
 	}
 
-	// ANCHOR - Power on a device
+	// ANCHOR - Zigbee :: Power on a device
 	async switchOnPlug(deviceName) {
 		try {
 			const { devices } = await this.getAllZigbeeDevice();
@@ -284,7 +286,7 @@ class HousekeeperBeeAiTools {
 		}
 	}
 
-	// ANCHOR - Power off a device
+	// ANCHOR - Zigbee :: Power off a device
 	async switchOffPlug(deviceName) {
 		try {
 			const { devices } = await this.getAllZigbeeDevice();
@@ -313,10 +315,9 @@ class HousekeeperBeeAiTools {
 			console.log(error);
 			return 'Device not found!'
 		}
-
 	}
 
-	// ANCHOR - Switch on/ off device
+	// ANCHOR - Zigbee :: Switch on/ off device
 	async clickButton(deviceName) {
 		try {
 			const { devices } = await this.getAllZigbeeDevice();
@@ -344,7 +345,7 @@ class HousekeeperBeeAiTools {
 		}
 	}
 
-	// ANCHOR - show AI tools help
+	// ANCHOR - System :: show AI tools help
 	showHelp() {
 		var cnt = 1;
 		var desc = ['==== Function List ===='];
@@ -363,7 +364,7 @@ class HousekeeperBeeAiTools {
 		return desc.join('\n');
 	}
 
-	// ANCHOR - Get Zigbee device state
+	// ANCHOR - Zigbee :: Get Zigbee device state
 	async getDeviceState(deviceName) {
 		var temperatureUnit = '°C';
 		var results = [];
@@ -395,7 +396,7 @@ class HousekeeperBeeAiTools {
 		return results.join('\n');
 	}
 
-	// ANCHOR - Get all zigbee device list
+	// ANCHOR - Zigbee :: Get all zigbee device list
 	async showZigBeeDevicesList() {
 		const { devices, onlineDevices } = await this.getAllZigbeeDevice();
 
@@ -420,7 +421,7 @@ class HousekeeperBeeAiTools {
 		return results.join('\n');
 	}
 
-	// ANCHOR - Get Zigbee device profile by friendly name/ device name
+	// ANCHOR - Zigbee :: Get Zigbee device profile by friendly name/ device name
 	async showZigBeeDeviceByName(deviceName) {
 		var { devices, onlineDevices } = await this.getAllZigbeeDevice();
 		var results = [`\n=== ${deviceName} Details ===`];
@@ -445,7 +446,7 @@ class HousekeeperBeeAiTools {
 		return results.join('\n');
 	}
 
-	// ANCHOR - Message handler
+	// ANCHOR - Telegram :: Message handler
 	async handleMessage(msg) {
 		var tm2LiveInMin = process.env.TLG_TTL_IN_MINUTE || 15;
 		tm2LiveInMin = Number((tm2LiveInMin >= 5 && tm2LiveInMin <= 720 ? tm2LiveInMin : 15));
@@ -458,6 +459,12 @@ class HousekeeperBeeAiTools {
 			this.sendTelegramMsg('Access Denied. Contact Administator.', false, 0)
 		} else {
 			this.callerChatId = msg.chat.id;
+
+			var promptMsg = msg.text;
+
+			if (promptMsg.includes("boxname_")) {
+				promptMsg = `use storage code (${promptMsg.replace("/start boxname_", "")}) to find storage box details.`;
+			}
 
 			setTimeout(async () => {
 				await this.delMsg(this.callerChatId, msg.message_id);
@@ -476,7 +483,7 @@ class HousekeeperBeeAiTools {
 				try {
 					const originalTime = new Date();
 					const msgDelTm = this.addMinutes(originalTime, tm2LiveInMin);
-					const response = await this.chat(msg.text);
+					const response = await this.chat(promptMsg);
 					this.sendTelegramMsg(response, false, tm2LiveInMs);
 					this.sendTelegramMsg(`The result will be deleted on ${msgDelTm.toLocaleString()}`, false, tm2LiveInMs);
 				} catch (error) {
@@ -493,7 +500,7 @@ class HousekeeperBeeAiTools {
 		}
 	}
 
-	// ANCHOR - Delete message
+	// ANCHOR - Telegram :: Delete message
 	async delMsg(aCallerId, aMsgId) {
 		try {
 			await fetch(`https://api.telegram.org/bot${this.botToken}/deleteMessage`, {
@@ -509,7 +516,7 @@ class HousekeeperBeeAiTools {
 		}
 	}
 
-	// ANCHOR - Telegram send message
+	// ANCHOR - Telegram :: Telegram send message
 	async sendTelegramMsg(msg, isShowTyping, ttl) {
 		try {
 
@@ -559,6 +566,11 @@ class HousekeeperBeeAiTools {
 					}, ttl);
 				} else {
 					this.sendTelegramMsg(`Error(${data.error_code}): ${data.description}`, false, ttl);
+
+					if (data.error_code === 400) {
+						this.sendTelegramMsg(`Clear Memory!`, false, ttl);
+						await this.telegramSessionStore.del(this.callerChatId);
+					}
 				}
 			}
 		} catch (error) {
@@ -608,9 +620,13 @@ class HousekeeperBeeAiTools {
 
 				jsonData.forEach((obj, index) => {
 					result.push(`📍: ${obj.locationName}`);
-					result.push(`📦: ${obj.storageName}`);
+
+					const link = `[${obj.storageName}](https://t.me/${this.bot_name}?start=boxname_${obj.storageCode})`;
+
+					result.push(`📦: ${link}`);
 					result.push('📝:');
 					result.push(obj.storageDesc);
+					result.push(`Tags: ${obj.tags.join(',')}`);
 					result.push('');
 				});
 
@@ -625,6 +641,150 @@ class HousekeeperBeeAiTools {
 		}
 	}
 
+	//ANCHOR - Housekeeper Bee :: Find storage box by tag
+	async findStorageBoxesByTag(tag) {
+		if (this.beeEnabled) {
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+			const response = await fetch(`${this.beeUrl}/api/housekeeping/storage/mcp/search/tag/${tag}`, {
+				headers: {
+					'x-api-key': `${this.beeApiKey}`,
+				},
+			});
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+
+			if (!response.ok) {
+				console.log(`Error fetching data: ${response.status} ${response.statusText}`)
+			}
+
+			var jsonData = await response.json();
+
+			if (jsonData.length == 0) {
+				return `${tag} Not found!`
+			} else {
+				var result = [`Search Result of ${tag}`];
+
+				jsonData.forEach((obj, index) => {
+					result.push(`📍: ${obj.locationName}`);
+
+					const link = `[${obj.storageName}](https://t.me/${this.bot_name}?start=boxname_${obj.storageCode})`;
+
+					result.push(`📦: ${link}`);
+					result.push('📝:');
+					result.push(obj.storageDesc);
+					result.push(`Tags: ${obj.tags.join(',')}`);
+					result.push('');
+				});
+
+				return result.join('\n');
+			}
+		} else {
+			if (!this.beeEnabled) {
+				return 'Housekeeper Bee integration disabled!';
+			} else {
+				return 'tag Not Found!'
+			}
+		}
+	}
+
+	//ANCHOR - Housekeeper Bee :: Find strorage box by Code
+	async findStorageBoxByCode(storageCode) {
+
+		const boxCode = storageCode;
+
+		if (this.beeEnabled) {
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+			const response = await fetch(`${this.beeUrl}/api/housekeeping/storage/mcp/findStorageBoxByCode/${boxCode}`, {
+				headers: {
+					'x-api-key': `${this.beeApiKey}`,
+				},
+			});
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+
+			if (!response.ok) {
+				console.log(`Error fetching data: ${response.status} ${response.statusText}`)
+			}
+
+			var jsonData = await response.json();
+
+			if (jsonData.length == 0) {
+				return `Storage Box: ${boxCode} Not found!`
+			} else {
+				var result = [`Search Result of ${boxCode}`];
+
+				jsonData.forEach((obj, index) => {
+					result.push(`📍: ${obj.locationName}`);
+
+					const link = `[${obj.storageName}](https://t.me/${this.bot_name}?start=boxname_${obj.storageCode})`;
+
+					result.push(`📦: ${link}`);
+					result.push('📝:');
+					result.push(obj.storageDesc);
+					result.push(`Tags: ${obj.tags.join(',')}`);
+					result.push('');
+				});
+
+				return result.join('\n');
+			}
+		} else {
+			if (!this.beeEnabled) {
+				return 'Housekeeper Bee integration disabled!';
+			} else {
+				return 'Storage Box Not Found!'
+			}
+		}
+	}
+
+	// ANCHOR - Housekeeper Bee :: Show all tags, used to tag box
+	async getAllStorageBoxTags() {
+		if (this.beeEnabled) {
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+			const response = await fetch(`${this.beeUrl}/api/housekeeping/storage/mcp/findStorageBox/\*/false`, {
+				headers: {
+					'x-api-key': `${this.beeApiKey}`,
+				},
+			});
+
+			process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+
+			if (!response.ok) {
+				console.log(`Error fetching data: ${response.status} ${response.statusText}`)
+			}
+
+			var jsonData = await response.json();
+
+			if (jsonData.length == 0) {
+				return `Error: Not found!`
+			} else {
+				var result = [`Search result:`];
+
+				jsonData = jsonData.filter(b => b.tags != null);
+
+				jsonData.forEach((obj, index) => {
+					obj.tags.map(tag => {
+						result.push(tag)
+					});
+				});
+
+				const sortedResults = [...new Set(result)].sort();
+
+				return sortedResults.join('\n');
+			}
+		} else {
+			if (!this.beeEnabled) {
+				return 'Error: Housekeeper Bee integration disabled!';
+			} else {
+				return 'Error: tag Not Found!'
+			}
+		}
+	}
 
 	// ANCHOR - Housekeeper Bee :: List all storage boxes and location name
 	async showAllStorageBoxes(boxName, isShowDetail) {
@@ -668,11 +828,14 @@ class HousekeeperBeeAiTools {
 						boxName = obj.locationName;
 					}
 
-					result.push(`📦: ${obj.storageName}`);
+					const link = `[${obj.storageName}](https://t.me/${this.bot_name}?start=boxname_${obj.storageCode})`;
+
+					result.push(`📦: Name: ${link}`);
 
 					if (show_detail) {
 						result.push(`🏷️:${obj.barcode}`);
 						result.push(`📋:${obj.storageDesc}`);
+						result.push(`Tags: ${obj.tags.join(',')}`);
 						result.push('');
 					}
 				});
@@ -735,13 +898,12 @@ class HousekeeperBeeAiTools {
 
 	// !SECTION - End of AI Tools Implementaion
 
-
 	/************************************************************** 
 	* SECTION - AI Tool Definition
 	***************************************************************/
 	tools = [
 		{
-			//ANCHOR - Switch on device
+			//ANCHOR - Zigbee :: Switch on device
 			type: 'function',
 			function: {
 				name: 'switchOnPlug',
@@ -762,7 +924,7 @@ class HousekeeperBeeAiTools {
 			detail: 'Turns on a Zigbee-connected device. Example: Power on "ada bedroom fan plug". Device names must be enclosed in double quotation marks.'
 		},
 		{
-			//ANCHOR - Switch off device
+			//ANCHOR - Zigbee :: Switch off device
 			type: 'function',
 			function: {
 				name: 'switchOffPlug',
@@ -783,29 +945,30 @@ class HousekeeperBeeAiTools {
 			detail: 'Turns off a Zigbee-connected device. Example: Power off "ada bedroom fan plug". Device names must be enclosed in double quotation marks.'
 		},
 		{
-			//ANCHOR - Show all ZigBee device profiles
+			//ANCHOR - Zigbee :: Show all ZigBee device profiles
 			type: 'function',
 			function: {
 				name: 'showZigBeeDevicesList',
-				description: 'Retrieves a complete list of all Zigbee device profiles, including device names, models, and functional descriptions.'
+				description: `Retrieves a complete list of all Zigbee device profiles, including device names, models, and functional descriptions. 
+				The sequence number should begin with #, device names with 🛜, status with 🌐, battery status with ⚡, mode with 🛡️, vendor with 🏬, and descriptions with 📝.`
 			},
 			display: true,
 			title: 'List All Zigbee Devices',
 			detail: 'Displays comprehensive information about all connected Zigbee devices, including their current status and capabilities.'
 		},
 		{
-			// ANCHOR - Get all temperature and humidity state
+			// ANCHOR - Zigbee :: Get all temperature and humidity state
 			type: 'function',
 			function: {
 				name: 'getAllTemperatureAndHumiditySensor',
-				description: 'Retrieves current readings from all connected temperature and humidity sensors in the system.'
+				description: 'Retrieves current readings from all connected temperature and humidity sensors in the system. The location name should start with 📍, temperature readings with 🌡️, humidity with 💧, and battery status with ⚡.'
 			},
 			display: true,
 			title: 'Get All Temperature & Humidity Readings',
 			detail: 'Shows current temperature and humidity data from all environmental sensors. Example: "Show all temperature devices" or "Display humidity readings".'
 		},
 		{
-			// ANCHOR - Show help menu
+			// ANCHOR - System :: Show help menu
 			type: 'function',
 			function: {
 				name: 'showHelp',
@@ -816,11 +979,12 @@ class HousekeeperBeeAiTools {
 			detail: 'Shows available commands and usage instructions. Example: "Help" or "?".'
 		},
 		{
-			// ANCHOR - show ZigBee device profile by name
+			// ANCHOR - Zigbee :: show ZigBee device profile by name
 			type: 'function',
 			function: {
 				name: 'showZigBeeDeviceByName',
-				description: 'Retrieves detailed profile information for a specific Zigbee device using its friendly name. The name must be enclosed in double quotation marks.',
+				description: `Retrieves detailed profile information for a specific Zigbee device using its friendly name. The name must be enclosed in double quotation marks.
+				The sequence number should begin with #, device names with 🛜, status with 🌐, battery status with ⚡, mode with 🛡️, vendor with 🏬, and descriptions with 📝.`,
 				parameters: {
 					type: 'object',
 					required: ['device_name'],
@@ -837,11 +1001,12 @@ class HousekeeperBeeAiTools {
 			detail: 'Retrieves detailed information about a specific device using its device name. Example: Get "ada bedroom" information. Names should be quoted.'
 		},
 		{
-			// ANCHOR - Get ZigBee device state by device name
+			// ANCHOR - Zigbee :: Get ZigBee device state by device name
 			type: 'function',
 			function: {
 				name: 'getDeviceState',
-				description: 'Retrieves the current state of a Zigbee device by its name. The device name should be enclosed in double quotation marks without extra quotes.',
+				description: `Retrieves the current state of a Zigbee device by its name. The device name should be enclosed in double quotation marks without extra quotes.
+				The sequence number should begin with #, device names with 🛜, status with 🌐, battery status with ⚡, mode with 🛡️, vendor with 🏬, and descriptions with 📝.`,
 				parameters: {
 					type: 'object',
 					required: ['device_name'],
@@ -858,7 +1023,7 @@ class HousekeeperBeeAiTools {
 			detail: 'Retrieves the current operational state of a device. Example: Get "ada bedroom" device state. Device names should be quoted.'
 		},
 		{
-			// ANCHOR - Trigger click event of plug 
+			// ANCHOR - Zigbee :: Trigger click event of plug 
 			type: 'function',
 			function: {
 				name: 'clickButton',
@@ -879,7 +1044,7 @@ class HousekeeperBeeAiTools {
 			detail: 'Switches a device between on and off states. Example: Press the "ada room fan" button.'
 		},
 		{
-			// ANCHOR - Find stored item from storage boxes by item name or owner name 
+			// ANCHOR - Housekeeper :: Find stored item from storage boxes by item name or owner name 
 			type: 'function',
 			function: {
 				name: 'findStorageBoxsItem',
@@ -900,11 +1065,57 @@ class HousekeeperBeeAiTools {
 			detail: 'Locates stored items across all storage boxes managed by Housekeeper Bee. Example: Find "USB cable" from storage boxes, or Find items belonging to Thomas.'
 		},
 		{
-			// ANCHOR - Show All storage boxes information
+			// ANCHOR - Housekeeper :: Find All storage boxes by tag
+			type: 'function',
+			function: {
+				name: 'findStorageBoxesByTag',
+				description: `This tool allows you to search for storage boxes using a specific tag name. Tags can consist of multiple words, such as "usb hub". 
+				Simply provide the desired tag, and the function will return all relevant storage boxes associated with it.`,
+				parameters: {
+					type: 'object',
+					required: ['tag'],
+					properties: {
+						tag: {
+							type: 'string',
+							description: 'tag'
+						}
+					}
+				}
+			},
+			display: true,
+			title: 'Find Storage Boxes by Tag',
+			detail: 'Find Storage Boxes by Tag such as USB, Winter, Summer and etc.'
+		},
+		{
+			// ANCHOR - Housekeeper :: Find storage box by code 
+			type: 'function',
+			function: {
+				name: 'findStorageBoxByCode',
+				description: `This tool enables you to locate all storage boxes using a specific storage box code. The code is presented in a UID format, such as 06b7d1e382b72385e3ca1c4fa6830a6f. 
+				By entering the storage box code, you will retrieve all associated storage boxes.`,
+				parameters: {
+					type: 'object',
+					required: ['storage_code'],
+					properties: {
+						storage_code: {
+							type: 'string',
+							description: 'A storage code of a storage box. Example of storage code: 06b7d1e382b72385e3ca1c4fa6830a6f'
+						}
+					}
+				}
+			},
+			display: true,
+			title: 'Find Storage Boxes by Code',
+			detail: 'Find storage box by storage box code.'
+		},
+		{
+			// ANCHOR - Housekeeper :: Show All storage boxes information
 			type: 'function',
 			function: {
 				name: 'showAllStorageBoxes',
-				description: 'Lists all storage boxes with optional filtering by box name. Can display detailed contents if requested.',
+				description: `Lists all storage boxes with optional filtering by box name. Can display detailed contents if requested. 
+				The location title should use 📍 before the location name.
+				IMPORTANT: Default only show storage box name.`,
 				parameters: {
 					type: 'object',
 					required: ['show_detail', 'filter_box_name'],
@@ -925,7 +1136,18 @@ class HousekeeperBeeAiTools {
 			detail: 'Displays all storage boxes managed by Housekeeper Bee with optional filtering and detail levels.'
 		},
 		{
-			// ANCHOR - Get Housekeeper Bee Server State
+			// ANCHOR - Housekeeper :: Show all tags
+			type: 'function',
+			function: {
+				name: 'getAllStorageBoxTags',
+				description: `Display all tags of storage boxes in plain text format.`
+			},
+			display: true,
+			title: 'Display All Box Tags',
+			detail: 'List All Box Tags'
+		},
+		{
+			// ANCHOR - Housekeeper :: Get Housekeeper Bee Server State
 			type: 'function',
 			function: {
 				name: 'getHseBeeSrvState',
@@ -936,7 +1158,7 @@ class HousekeeperBeeAiTools {
 			detail: 'Displays the current status and health of the Housekeeper Bee server system. Example: Show Bee status.'
 		},
 		{
-			// ANCHOR - Count total number of boxes
+			// ANCHOR - Housekeeper :: Count total number of boxes
 			type: 'function',
 			function: {
 				name: 'countStorageBoxes',
@@ -954,20 +1176,19 @@ class HousekeeperBeeAiTools {
 			},
 			display: false,
 			title: 'Count Storage Boxes',
-			detail: 'Returns the total number of storage boxes matching the specified criteria.'
+			detail: 'Returns the total count of storage boxes that match the specified criteria.'
 		},
 		{
-			// ANCHOR - Clear prompt history from redis
+			// ANCHOR - Housekeeper :: Clear prompt history from redis
 			type: 'function',
 			function: {
 				name: 'deletePromptHistory',
-				description: 'Telegram users request to clear or delete the prompt history to enhance performance and data accuracy.'
+				description: `Telegram users request the option to clear or delete prompt history to improve performance and data accuracy.`
 			},
 			display: true,
 			title: 'Clear user prompt history',
-			detail: 'It delete all user prompt history from redis database.'
+			detail: 'It deletes all user prompt history from the Redis database.'
 		}
-
 	];
 
 	// !SECTION - End AI Tool Definition
@@ -985,23 +1206,26 @@ class HousekeeperBeeAiTools {
 		var response = {};
 		var data = {};
 
-		if(!this.telegramSessionStore.checkConnection()){
+		if (!this.telegramSessionStore.checkConnection()) {
 			await this.telegramSessionStore.connect();
 			await this.telegramSessionStore.del(this.callerChatId);
-		}else{
-			if(this.clearPromptHistory){
+		} else {
+			if (this.clearPromptHistory) {
 				await this.telegramSessionStore.del(this.callerChatId);
 				this.clearPromptHistory = false;
 			}
 		}
 
-		const messages = await this.telegramSessionStore.getArray(this.callerChatId);
+		var messages = await this.telegramSessionStore.getArray(this.callerChatId);
 
-		messages.push({ role: 'user', content: message }); 
+		message = ` ${message}. IMPORTANT: For inventory queries, if a hyperlink is found and its URI contains 'boxname_', display the hyperlink along with the corresponding storage box name.`
+
+		messages.push({ role: 'user', content: message });
 
 		try {
 			const requestBody = {
 				model: this.model,
+				system: `You are a helpful storage management assistant for Housekeeper Bee and ZigBee devices. Please shorten the result message to 3,500 characters.`,
 				messages: messages,
 				stream: false,
 				think: (process.env.OLLAMA_THINKING === 'true' ? true : false),
@@ -1029,8 +1253,6 @@ class HousekeeperBeeAiTools {
 					response = await this.ollama.chat(requestBody);
 
 					messages.push(response.message)
-					//console.log('Thinking:', response.message.thinking)
-					//console.log('Content:', response.message.content)
 
 					const toolCalls = response.message.tool_calls ?? []
 
@@ -1113,7 +1335,7 @@ class HousekeeperBeeAiTools {
 						}
 					}
 
-					if(messages.length > 5){
+					if (messages.length > 5) {
 						messages.splice(0, 5);
 					}
 

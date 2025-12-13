@@ -1,4 +1,38 @@
 # RELEASE NOTE
+### Version: v1.5.0
+### Release Date: 2025/12/14
+----  
+### ✦ Changes:
+#### [Added]
+
+Added: Hyperlinks to open the storage box, embedded in the Telegram reply message.     
+Added: Functionality to allow searching by tag name.     
+Added: Functionality to allow searching by storage code.     
+
+### ✦ Setup procedure
+Add Enviornment variable to `.env.prod` file.    
+
+📱Open Telegram App ➜ BotFather ➜ /mybots ➜ You can get the bot name from the reply message.     
+
+```
+TLG_BOT_NAME={@Telegram bot name}  #Example: @My_Bee_bot
+```
+### ✦ Usage
+
+Commands:    
+```
+show all boxes, tagged toys, usb or winter
+```
+
+```
+show all boxes, tagged usb and charger.
+```
+
+### ✦ Requirement
+
+Housekeeper Bee Version 1.6.2
+
+---
 
 ### Version: v1.4.0
 ### Release Date: 2025/12/05
