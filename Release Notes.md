@@ -1,4 +1,13 @@
 # RELEASE NOTE
+### Version: v1.5.1
+### Release Date: 2025/12/14 
+----  
+### ✦ Changes:
+#### [🚨Hotfix]
+
+🚩Added error handling: Symptom - received an undefined message, which caused the application to terminate.
+
+---
 ### Version: v1.5.0
 ### Release Date: 2025/12/14
 ----  

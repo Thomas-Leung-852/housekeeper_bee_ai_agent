@@ -462,40 +462,44 @@ class HousekeeperBeeAiTools {
 
 			var promptMsg = msg.text;
 
-			if (promptMsg.includes("boxname_")) {
-				promptMsg = `use storage code (${promptMsg.replace("/start boxname_", "")}) to find storage box details.`;
-			}
-
-			setTimeout(async () => {
-				await this.delMsg(this.callerChatId, msg.message_id);
-			}, tm2LiveInMs);
-
-			if (!this.processingFlag) {
-				this.sendTelegramMsg('Ok, it may takes a few minutes.', true, tm2LiveInMsMsg);
-				this.processingFlag = true;
-
-				if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
-
-				if (this.ollamaEnv === 'local') {
-					this.timeoutHdrId = this.newTimeoutHandler(this.REQUEST_TIMEOUT);
+			if(promptMsg){
+				if (promptMsg.includes("boxname_")) {
+					promptMsg = `use storage code (${promptMsg.replace("/start boxname_", "")}) to find storage box details.`;
 				}
 
-				try {
-					const originalTime = new Date();
-					const msgDelTm = this.addMinutes(originalTime, tm2LiveInMin);
-					const response = await this.chat(promptMsg);
-					this.sendTelegramMsg(response, false, tm2LiveInMs);
-					this.sendTelegramMsg(`The result will be deleted on ${msgDelTm.toLocaleString()}`, false, tm2LiveInMs);
-				} catch (error) {
-					console.log(error);
+				setTimeout(async () => {
+					await this.delMsg(this.callerChatId, msg.message_id);
+				}, tm2LiveInMs);
+
+				if (!this.processingFlag) {
+					this.sendTelegramMsg('Ok, it may takes a few minutes.', true, tm2LiveInMsMsg);
+					this.processingFlag = true;
+
+					if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
+
+					if (this.ollamaEnv === 'local') {
+						this.timeoutHdrId = this.newTimeoutHandler(this.REQUEST_TIMEOUT);
+					}
+
+					try {
+						const originalTime = new Date();
+						const msgDelTm = this.addMinutes(originalTime, tm2LiveInMin);
+						const response = await this.chat(promptMsg);
+						this.sendTelegramMsg(response, false, tm2LiveInMs);
+						this.sendTelegramMsg(`The result will be deleted on ${msgDelTm.toLocaleString()}`, false, tm2LiveInMs);
+					} catch (error) {
+						console.log(error);
+					}
+
+					this.processingFlag = false;
+
+					if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
+
+				} else {
+					this.sendTelegramMsg('Processing privous request, please wait!', true, tm2LiveInMsMsg);
 				}
-
-				this.processingFlag = false;
-
-				if (this.timeoutHdrId != null) { clearInterval(this.timeoutHdrId); this.timeoutHdrId = null; }
-
-			} else {
-				this.sendTelegramMsg('Processing privous request, please wait!', true, tm2LiveInMsMsg);
+			}else{
+				this.sendTelegramMsg('Received an unknown message. Request ignored!', false, 0);
 			}
 		}
 	}
