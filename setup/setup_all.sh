@@ -2,9 +2,9 @@
 
 clear
 
-echo "Install Nodejs version 18 ..."
+echo "Install node version 24.x"
 
-./00_install_nodejs.sh  
+./00_install_nodejs.sh
 wait
 
 echo "Setup zigbee2mqtt server"

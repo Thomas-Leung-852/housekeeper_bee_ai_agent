@@ -1,4 +1,10 @@
 # RELEASE NOTE
+### Version: v1.5.2
+### Release Date: 2026/01/16 
+----  
+### ✦ Updated setup script:
+- Check and install node version 24.x LTS 
+
 ### Version: v1.5.1
 ### Release Date: 2025/12/14 
 ----  
