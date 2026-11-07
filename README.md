@@ -269,6 +269,8 @@ If you have a fan, AC, or other cooling device in the server room that’s conne
 
 ### ✦ Why not use LangChain
 
+> LangChain is an agent framework, not a protocol. This project chooses to implement the agent loop directly rather than through a framework, for full control and minimal overhead.
+
 #### While LangChain offers a powerful framework for building applications with Large Language Models (LLMs), several reasons might lead developers to choose alternatives or minimize its use, particularly in production environments:
 
 - Over-abstraction and Complexity: LangChain's layered abstractions can make it challenging to understand and debug the underlying code, especially for developers new to LLMs or the framework itself. This complexity can hinder customization and lead to a steeper learning curve.    
@@ -284,4 +286,79 @@ If you have a fan, AC, or other cooling device in the server room that’s conne
 - Dependency Bloat and Integration Issues: The framework can pull in a large number of dependencies, potentially increasing container size and attack surface. Additionally, integrating LangChain with existing tools and frameworks can sometimes be challenging.     
 
 These factors suggest that while LangChain can be valuable for initial experimentation and prototyping, careful consideration is needed when deploying it in production, and alternatives or a more modular approach might be preferred for robust, scalable, and cost-effective solutions.
+
+### ✦ Microservice Architecture
+
+The AI Agent is a **microservice** in the Housekeeper Bee ecosystem. It has a single responsibility — natural language interaction — and communicates with the Housekeeper Bee Server exclusively through its REST API. It owns its own memory store (Redis) and its own user interface (Telegram). You can deploy, restart or update the agent without touching the Housekeeper Bee Server.
+
+| Microservice principle | Implementation |
+|---|---|
+| **Single responsibility** | Handles only AI-powered natural language interaction |
+| **Independent deployment** | Runs as its own Node.js process, separate from Housekeeper Bee Server |
+| **Communicates via API** | Calls Housekeeper Bee Server over REST HTTP — loose coupling |
+| **Own data store** | Redis for session memory |
+| **Own interface** | Telegram Bot API as the user entry point |
+
+```
+Telegram  →  AI Agent microservice  →  Housekeeper Bee Server
+               (this project)              (separate RPi service)
+               Redis (own memory)          Storage data & Zigbee devices
+```
+
+### ✦ Protocol & Architecture — MCP vs UTCP vs Ollama Native
+
+This project uses **Ollama Native Function Calling** — not MCP or UTCP. Here is a quick comparison so you can understand the design choice at a glance.
+
+| | Ollama Native *(this project)* | MCP | UTCP |
+|---|---|---|---|
+| **Full name** | Ollama native function calling | Model Context Protocol | Universal Tool Calling Protocol |
+| **Architecture** | LLM + tool schema inside the same app → direct REST call | Client → MCP server (middleware) → Tool | AI Agent reads JSON manifest → direct call to tool |
+| **Tool definitions** | Hardcoded as a JSON schema array inside the app | Exposed by a dedicated MCP server process | Published as an external JSON manifest by the tool itself |
+| **Middleware layer** | ✅ None | ❌ Requires a server process per tool | ✅ None |
+| **Discoverability** | Private — only this app knows the tools | Any MCP-compatible client can connect | Any UTCP-compatible agent can discover via manifest |
+| **Transport** | Direct HTTP `fetch()` | JSON-RPC | HTTP, WebSocket, gRPC, CLI |
+| **Best for** | Self-contained agents with a fixed tool set | Standardised multi-client tool sharing | Lightweight direct API access with open discoverability |
+
+#### ❖ Why Ollama Native for this project?
+
+This agent has a fixed, well-known set of tools (Housekeeper Bee REST API + Zigbee device control). There is no need for external discoverability or a middleware layer. Calling the Housekeeper Bee REST API endpoints directly — with no wrapper server — keeps the architecture simple, low-latency, and easy to debug.
+
+This direct-call approach is philosophically aligned with UTCP. The practical difference is that UTCP tools publish a JSON manifest so *any* agent can discover and call them, while this project's tools are defined privately inside the app itself.
+
+#### ❖ Architecture comparison diagram
+
+![MCP vs UTCP vs Ollama Native architecture](images/mcp-utcp-ollama-comparison.svg)
+
+#### ❖ Why this qualifies as an AI Agent — the ReAct pattern
+
+This app implements the **ReAct (Reason → Act → Observe)** loop. When the selected model supports tool calling, the LLM iterates: reasons over tool results, decides the next action, and repeats until it has a complete answer. Conversation history is persisted in **Redis**, giving the agent short-term memory across Telegram conversations — each chat's history is saved and restored using the Telegram `chatId` as the Redis key. This multi-step, self-directing behaviour combined with external memory is what distinguishes an AI agent from a simple LLM wrapper.
+
+| Characteristic | How it is implemented |
+|---|---|
+| **Reasoning** | LLM decides which tool to call next, based on prior results |
+| **Action** | Executes tools — `fetch()` calls to Housekeeper Bee REST API / Zigbee devices |
+| **Perception** | Tool results are pushed back into `messages[]` for the LLM to observe |
+| **Memory** | Redis persists conversation history across separate Telegram sessions |
+
+#### ❖ Architecture flow — this project
+
+```
+Telegram message
+       ↓
+  Ollama LLM          ← reasons over tools[] schema (defined inside the app)
+       ↓
+  Tool function       ← selected by LLM
+       ↓
+  Direct fetch()      ← no middleware
+       ↓
+  Housekeeper Bee REST API / Zigbee device
+       ↓
+  Result fed back to LLM  (ReAct loop — cloud mode)
+       ↓
+  Telegram reply
+```
+
+#### ❖ Architecture diagram — component view
+
+![Housekeeper Bee AI Agent architecture](images/housekeeper-bee-agent-architecture.svg)
 

@@ -1,0 +1,124 @@
+<svg width="680" height="620" viewBox="0 0 680 620" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>MCP vs UTCP vs Ollama Native architecture comparison</title>
+
+  <!-- Background -->
+  <rect width="680" height="620" fill="#ffffff"/>
+
+  <!-- ═══════════════════════ MCP ═══════════════════════ -->
+  <text x="340" y="30" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1a1a1a">MCP</text>
+  <text x="340" y="48" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#555">Client → MCP Server → Tool</text>
+
+  <!-- AI Agent dashed box -->
+  <rect x="40" y="60" width="160" height="80" rx="8" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="120" y="76" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#888">AI Agent</text>
+
+  <!-- LLM box -->
+  <rect x="58" y="82" width="124" height="46" rx="6" fill="#6d5fd4"/>
+  <text x="120" y="102" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">LLM</text>
+  <text x="120" y="118" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#d4cfff">Tool schema inside</text>
+
+  <!-- MCP Server box -->
+  <rect x="258" y="70" width="142" height="58" rx="6" fill="#c0533a"/>
+  <text x="329" y="96" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">MCP Server</text>
+  <text x="329" y="114" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#ffd4c8">Wraps the tool</text>
+
+  <!-- REST API box (MCP) -->
+  <rect x="464" y="70" width="142" height="58" rx="6" fill="#0f7a5a"/>
+  <text x="535" y="96" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">REST API</text>
+  <text x="535" y="114" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b4f0dc">Native endpoint</text>
+
+  <!-- MCP arrows -->
+  <line x1="182" y1="100" x2="254" y2="100" stroke="#666" stroke-width="1.2"/>
+  <polygon points="254,96 262,100 254,104" fill="#666"/>
+  <text x="219" y="93" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#555">calls</text>
+
+  <line x1="400" y1="100" x2="462" y2="100" stroke="#666" stroke-width="1.2"/>
+  <polygon points="462,96 470,100 462,104" fill="#666"/>
+  <text x="431" y="93" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#555">proxies</text>
+
+  <!-- Warning badge -->
+  <rect x="254" y="142" width="150" height="22" rx="4" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+  <text x="329" y="157" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b45309">⚠ extra server layer</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="192" x2="640" y2="192" stroke="#ddd" stroke-width="0.5"/>
+
+  <!-- ═══════════════════════ UTCP ═══════════════════════ -->
+  <text x="340" y="216" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1a1a1a">UTCP</text>
+  <text x="340" y="234" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#555">AI Agent reads JSON manifest → calls tool directly</text>
+
+  <!-- AI Agent dashed box (UTCP) -->
+  <rect x="40" y="248" width="160" height="80" rx="8" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="120" y="264" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#888">AI Agent</text>
+
+  <!-- LLM box (UTCP) -->
+  <rect x="58" y="270" width="124" height="46" rx="6" fill="#6d5fd4"/>
+  <text x="120" y="290" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">LLM</text>
+  <text x="120" y="306" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#d4cfff">Reads manifest</text>
+
+  <!-- JSON Manifest box -->
+  <rect x="258" y="258" width="142" height="58" rx="6" fill="#b07010"/>
+  <text x="329" y="282" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">JSON Manifest</text>
+  <text x="329" y="300" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#ffe9a0">Published by tool</text>
+
+  <!-- REST API box (UTCP) -->
+  <rect x="464" y="258" width="142" height="58" rx="6" fill="#0f7a5a"/>
+  <text x="535" y="282" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">REST API</text>
+  <text x="535" y="300" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b4f0dc">Native endpoint</text>
+
+  <!-- reads arrow -->
+  <line x1="182" y1="284" x2="254" y2="284" stroke="#666" stroke-width="1.2"/>
+  <polygon points="254,280 262,284 254,288" fill="#666"/>
+  <text x="219" y="277" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#555">reads</text>
+
+  <!-- calls directly arc -->
+  <path d="M182 308 Q330 350 462 308" fill="none" stroke="#666" stroke-width="1.2"/>
+  <polygon points="459,304 468,307 461,312" fill="#666"/>
+  <text x="329" y="352" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#555">calls directly</text>
+
+  <!-- OK badge (UTCP) -->
+  <rect x="246" y="358" width="166" height="22" rx="4" fill="none" stroke="#22c55e" stroke-width="1" stroke-dasharray="3 2"/>
+  <text x="329" y="373" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#15803d">✓ no middleware</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="398" x2="640" y2="398" stroke="#ddd" stroke-width="0.5"/>
+
+  <!-- ═══════════════════════ Ollama Native ═══════════════════════ -->
+  <text x="340" y="420" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1a1a1a">Ollama Native — this project</text>
+  <text x="340" y="438" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#555">LLM + tool schema inside the same app → calls tool directly</text>
+
+  <!-- Outer AI Agent dashed box -->
+  <rect x="40" y="450" width="382" height="118" rx="8" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="231" y="466" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#888">AI Agent (Node.js app — single process)</text>
+
+  <!-- LLM box (Ollama) -->
+  <rect x="58" y="474" width="142" height="78" rx="6" fill="#6d5fd4"/>
+  <text x="129" y="506" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">Ollama LLM</text>
+  <text x="129" y="522" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#d4cfff">Reasons + selects</text>
+
+  <!-- tools[] schema box -->
+  <rect x="232" y="474" width="162" height="78" rx="6" fill="#1a5fa8"/>
+  <text x="313" y="500" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">tools[] schema</text>
+  <text x="313" y="518" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b8d8ff">Hardcoded inside</text>
+  <text x="313" y="534" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b8d8ff">the same app</text>
+
+  <!-- inner arrow LLM → tools -->
+  <line x1="200" y1="513" x2="228" y2="513" stroke="#fff" stroke-width="1.2"/>
+  <polygon points="228,509 236,513 228,517" fill="#fff"/>
+
+  <!-- REST API box (Ollama) -->
+  <rect x="464" y="466" width="152" height="78" rx="6" fill="#0f7a5a"/>
+  <text x="540" y="494" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#fff">REST API</text>
+  <text x="540" y="512" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b4f0dc">Housekeeper Bee</text>
+  <text x="540" y="528" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#b4f0dc">native endpoint</text>
+
+  <!-- fetch() arrow -->
+  <line x1="422" y1="505" x2="462" y2="505" stroke="#666" stroke-width="1.2"/>
+  <polygon points="462,501 470,505 462,509" fill="#666"/>
+  <text x="442" y="498" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#555">fetch()</text>
+
+  <!-- OK badge (Ollama) -->
+  <rect x="220" y="582" width="240" height="22" rx="4" fill="none" stroke="#22c55e" stroke-width="1" stroke-dasharray="3 2"/>
+  <text x="340" y="597" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="11" fill="#15803d">✓ no middleware, no manifest</text>
+
+</svg>
